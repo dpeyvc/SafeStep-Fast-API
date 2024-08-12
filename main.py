@@ -10,6 +10,12 @@ app = FastAPI()
 gyroscope_data = []
 file_counter = 0
 
+# CSV 파일을 저장할 폴더 이름
+folder_name = 'csv'
+
+# 폴더가 존재하지 않으면 생성
+if not os.path.exists(folder_name):
+    os.makedirs(folder_name)
 
 @app.websocket("/")
 async def websocket_endpoint(websocket: WebSocket):
@@ -35,9 +41,11 @@ async def websocket_endpoint(websocket: WebSocket):
 
 async def save_to_csv():
     global file_counter
+    # CSV 파일 저장 경로 지정
     filename = f'gyroscope_data_{file_counter}.csv'
+    file_path = os.path.join(folder_name, filename)
 
-    with open(filename, 'w', newline='') as csvfile:
+    with open(file_path, 'w', newline='') as csvfile:
         fieldnames = ['x', 'y', 'z']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
@@ -45,5 +53,5 @@ async def save_to_csv():
         for data in gyroscope_data:
             writer.writerow(data)
 
-    print(f"Data saved to {filename}")
+    print(f"Data saved to {file_path}")
     file_counter += 1
