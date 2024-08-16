@@ -23,28 +23,27 @@ async def websocket_endpoint(websocket: WebSocket):
     print("Client connected")  # 클라이언트 연결 로그
     try:
         while True:
-            try:
-                data = await websocket.receive_text()
-                print(f"Received raw data: {data}")  # 받은 원본 데이터 로그
+            data = await websocket.receive_text()  # 이 부분에서 WebSocketDisconnect 예외가 발생할 수 있습니다.
+            # print(f"Received raw data: {data}")  # 받은 원본 데이터 로그
 
-                # 데이터를 쉼표로 분리하여 리스트로 변환
-                data_list = data.split(',')
-                if len(data_list) == 5:  # x, y, z, latitude, longitude
-                    sensor_data.append(data_list)
-                    print(f"Processed data: {data_list}")  # 처리된 데이터 로그
+            # 데이터를 쉼표로 분리하여 리스트로 변환
+            data_list = data.split(',')
+            if len(data_list) == 5:  # x, y, z, latitude, longitude
+                sensor_data.append(data_list)
+                print(f"Processed data: {data_list}")  # 처리된 데이터 로그
 
-                    # 데이터 수집 후 일정량 이상이 되면 CSV 파일로 저장
-                    if len(sensor_data) >= 5000:
-                        await save_to_csv()
-                        sensor_data.clear()
-                else:
-                    print(f"Invalid data format: {data}")  # 잘못된 데이터 형식 로그
+                # 데이터 수집 후 일정량 이상이 되면 CSV 파일로 저장
+                if len(sensor_data) >= 5000:
+                    await save_to_csv()
+                    sensor_data.clear()
+            else:
+                print(f"Invalid data format: {data}")  # 잘못된 데이터 형식 로그
 
-                await websocket.send_text(f"Sensor data received: {data}")
-            except Exception as e:
-                print(f"Error processing data: {e}")  # 데이터 처리 중 오류 로그
+            await websocket.send_text(f"Sensor data received: {data}")
     except WebSocketDisconnect:
         print("Client disconnected")  # 클라이언트 연결 해제 로그
+    except Exception as e:
+        print(f"Error processing data: {e}")  # 데이터 처리 중 오류 로그
 
 
 async def save_to_csv():
