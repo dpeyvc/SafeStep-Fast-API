@@ -1,6 +1,7 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 import csv
 import os
+import asyncio
 
 app = FastAPI()
 
@@ -15,46 +16,60 @@ folder_name = 'csv'
 if not os.path.exists(folder_name):
     os.makedirs(folder_name)
 
+# 클라이언트 서버 웹소켓 연결을 저장할 변수
+client_websocket = None
+
 
 @app.websocket("/")
 async def websocket_endpoint(websocket: WebSocket):
-    global file_counter
+    global file_counter, client_websocket
     await websocket.accept()
-    print("Client connected")  # 클라이언트 연결 로그
+    print("Connection established")
+
     try:
         while True:
-            data = await websocket.receive_text()  # 이 부분에서 WebSocketDisconnect 예외가 발생할 수 있습니다.
-            # print(f"Received raw data: {data}")  # 받은 원본 데이터 로그
+            data = await websocket.receive_text()
 
-            # 데이터를 쉼표로 분리하여 리스트로 변환
-            data_list = data.split(',')
-            if len(data_list) == 5:  # x, y, z, latitude, longitude
-                sensor_data.append(data_list)
-                print(f"Processed data: {data_list}")  # 처리된 데이터 로그
-
-                # 데이터 수집 후 일정량 이상이 되면 CSV 파일로 저장
-                if len(sensor_data) >= 5000:
-                    await save_to_csv()
-                    sensor_data.clear()
+            if data == "0":
+                print("Received '0'. This is the client server.")
+                client_websocket = websocket
+                await client_websocket.send_text("Ready to send sensor data")
             else:
-                print(f"Invalid data format: {data}")  # 잘못된 데이터 형식 로그
+                # 앱에서 온 데이터 처리
+                data_list = data.split(',')
+                if len(data_list) == 7:
+                    sensor_data.append(data_list)
+                    print(f"Processed data: {data_list}")
 
-            await websocket.send_text(f"Sensor data received: {data}")
+                    # 클라이언트 서버로 데이터 전송
+                    if client_websocket:
+                        await client_websocket.send_text(data)
+
+                    # 데이터 수집 후 일정량 이상이 되면 CSV 파일로 저장
+                    if len(sensor_data) >= 5000:
+                        await save_to_csv()
+                        sensor_data.clear()
+                else:
+                    print(f"Invalid data format: {data}")
+
     except WebSocketDisconnect:
-        print("Client disconnected")  # 클라이언트 연결 해제 로그
+        await save_to_csv()
+        if websocket == client_websocket:
+            client_websocket = None
+        else:
+            print("App disconnected")
     except Exception as e:
-        print(f"Error processing data: {e}")  # 데이터 처리 중 오류 로그
+        print(f"Error processing data: {e}")
 
 
 async def save_to_csv():
     global file_counter
-    # CSV 파일 저장 경로 지정
     filename = f'sensor_data_{file_counter}.csv'
     file_path = os.path.join(folder_name, filename)
 
     try:
         with open(file_path, 'w', newline='') as csvfile:
-            fieldnames = ['gyro_x', 'gyro_y', 'gyro_z', 'latitude', 'longitude']
+            fieldnames = ['device_id', 'latitude', 'longitude', 'gyro_x', 'gyro_y', 'gyro_z', 'timestamp']
             writer = csv.writer(csvfile)
 
             writer.writerow(fieldnames)
@@ -63,7 +78,7 @@ async def save_to_csv():
         print(f"Data saved to {file_path}")
         file_counter += 1
     except Exception as e:
-        print(f"Error saving CSV file: {e}")  # CSV 파일 저장 중 오류 로그
+        print(f"Error saving CSV file: {e}")
 
 
 @app.get("/")
