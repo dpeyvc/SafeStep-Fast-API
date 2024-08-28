@@ -43,9 +43,7 @@ def preprocess_and_label_data(file_paths, sampling_rate=50, interval=25):
 
 def main():
     # 파일 경로 리스트
-    file_paths = ['./csv/gyroscope_data_0.csv', './csv/gyroscope_data_1.csv',
-                  './csv/gyroscope_data_2.csv', './csv/gyroscope_data_3.csv',
-                  './csv/gyroscope_data_4.csv']
+    file_paths = ['.csv']
 
     # 데이터를 읽어와서 라벨링 처리
     all_data = preprocess_and_label_data(file_paths, sampling_rate=50, interval=25)
